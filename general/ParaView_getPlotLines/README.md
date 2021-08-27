@@ -53,3 +53,13 @@ be looped over:
 
 As the file successfully loops over a timestep, it is removed from the
 `timesteps` file.
+
+Easy way to create a `timesteps` file is in command line with something like
+this:
+
+```bash
+for file in <glob restart files> ; do basename $file | awk -F. '{print $2}' >> timesteps ; done
+
+```
+
+where `<glob restart files>` could be `../1920-procs_case/restart-dat.*.1`.
