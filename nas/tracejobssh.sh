@@ -42,7 +42,7 @@ do
 done
 
 if [ -z $OTHER_ARGUMENTS ]; then
-    Jobs=($(qstat -u $USER -W o=JobID -W o=+S | awk '$2 ~ /H/ {print $1}'))
+    Jobs=($(qstat -u $USER -W o=JobID -W o=+S | awk '$2 !~ /H/ {print $1}'))
     if [ -z $Jobs ]; then
         echo "No queued jobs from ${USER} (jobs either running, held, or not submitted)."
         exit 0
