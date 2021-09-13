@@ -6,6 +6,45 @@ import re
 from statistics import stdev
 import warnings
 
+numRe = r'[+-]?(?:0|[1-9]\d*)(?:\.\d*)?(?:[eE][+\-]?\d+)' # scientific notation regex
+iterationRe = re.compile(r'\s*(?P<timestep>\d+)\s+(?P<walltime>{0})\s+(?P<residual>{0})\s+'
+                         r'\((?P<decibel>.*)\)\s+(?P<vel_res>{0})\s+(?P<pre_res>{0})\s*'
+                         r'<\s*(?P<maxres_node>\d+)\s*-\s*(?P<maxres_part>\d+)\s*'
+                         r'\|\s*(?P<maxres_ratio>\d+)\s*>\s*'
+                         r'\[\s*(?P<CGiter>\d+)\s*-\s*(?P<GMRESiter>\d+)\s*\]'.format(numRe))
+
+def parseIterLine(line):
+    """Parse line for PHASTA iteration information
+
+    Returns dictionary of the matches converted to a numeric type (either int
+    or float).
+    """
+
+    keyTypeDict = {
+   'timestep':     int,
+   'walltime':     float,
+   'residual':     float,
+   'decibel':      int,
+   'vel_res':      float,
+   'pre_res':      float,
+   'maxres_node':  int,
+   'maxres_part':  int,
+   'maxres_ratio': int,
+   'GMRESiter':    int,
+   'CGiter':       int,
+    }
+
+    match = iterationRe.search(line)
+    if match:
+        matchdict = match.groupdict()
+        for key, dtype in keyTypeDict.items():
+            matchdict[key] = dtype(matchdict[key])
+    else:
+        matchdict = None
+
+    return matchdict
+
+
 def parseOutFile(file):
     laststepRe = re.compile(r'^\s*stopjob(?:\S+\s+){2}(\d+)\s+(\d+)')
     solTimeRe = re.compile(r'^\s*\d+\s+(\S+)')
@@ -13,26 +52,14 @@ def parseOutFile(file):
     with file.open() as fileread:
         output = fileread.readlines()
 
-    laststepBool = False
-    times = []
-    timesteps = []
-    for i, line in enumerate(output):
-        laststepMatch = laststepRe.match(line)
-        if laststepMatch:
-            laststepBool = True
-            timestep = laststepMatch.group(1)
-            continue
-        if laststepBool:
-            solTimeMatch = solTimeRe.match(line)
-            if solTimeMatch:
-                times.append(float(solTimeMatch.group(1)))
-                timesteps.append(int(timestep))
-            else:
-                warnings.warn('Did not find solution wall-time at line {}:\n\t "{}"'.format(i, line.rstrip()))
-                print()
-            laststepBool = False
+    iterations = []
+    for line in output:
+        matchdict = parseIterLine(line)
+        if matchdict:
+            iterations.append(matchdict)
 
-    return times, timesteps
+    return iterations
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Get timestep statistics from PHASTA output files.',
@@ -50,16 +77,24 @@ if __name__ == '__main__':
     if not args.output.exists():
         parser.error('PHASTA output file "{}" does not exist!'.format(args.output.as_posix()))
 
-    times, timesteps = parseOutFile(args.output)
-    print('Starting timestep: {}'.format(timesteps[0]))
-    print('Ending timestep:   {}'.format(timesteps[-1]))
-    average = (times[-1] - times[0])/(timesteps[-1] - timesteps[0])
+    iterations = parseOutFile(args.output)
+    print('Starting timestep: {}'.format(iterations[0]['timestep']))
+    print('Ending timestep:   {}'.format(iterations[-1]['timestep']))
+    average = (iterations[-1]['walltime'] - iterations[0]['walltime'])/ \
+              (iterations[-1]['timestep'] - iterations[0]['timestep'])
     print('Seconds per timestep: ' + str(average))
 
     if args.stddev:
         tsTime = []
-        for i in range(len(times)-1):
-            tsTime.append(times[i] - times[i+1])
+        timestep0 = iterations[0]['timestep']
+        walltime0 = iterations[0]['walltime']
+        for iteration in iterations:
+            if iteration['timestep'] == timestep0:
+                continue
+            else:
+                tsTime.append(walltime0 - iteration['walltime'])
+                timestep0 = iteration['timestep']
+                walltime0 = iteration['walltime']
 
         stddev = stdev(tsTime)
 
@@ -71,4 +106,4 @@ if __name__ == '__main__':
     if args.time:
         tsInJob = (args.time*60**2)/average
         print('Timesteps in job: ' + str(tsInJob))
-        print('\t rerun-check: ' + str(tsInJob+timesteps[0]))
+        print('\t rerun-check: ' + str(tsInJob+iterations[0]['timestep']))
