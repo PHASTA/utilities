@@ -46,9 +46,11 @@ def parseIterLine(line):
 
 
 def parseOutFile(file):
-    laststepRe = re.compile(r'^\s*stopjob(?:\S+\s+){2}(\d+)\s+(\d+)')
-    solTimeRe = re.compile(r'^\s*\d+\s+(\S+)')
+    """Parse the file and return list of dictionaries of the results
 
+    file : pathlib.PurePath
+        Path to the file to be parsed
+    """
     with file.open() as fileread:
         output = fileread.readlines()
 
@@ -78,6 +80,10 @@ if __name__ == '__main__':
         parser.error('PHASTA output file "{}" does not exist!'.format(args.output.as_posix()))
 
     iterations = parseOutFile(args.output)
+    if not iterations:
+        raise EOFError('No timestep information could be parsed '
+                       'from the file: {}'.format(args.output.as_posix()))
+
     print('Starting timestep: {}'.format(iterations[0]['timestep']))
     print('Ending timestep:   {}'.format(iterations[-1]['timestep']))
     average = (iterations[-1]['walltime'] - iterations[0]['walltime'])/ \
