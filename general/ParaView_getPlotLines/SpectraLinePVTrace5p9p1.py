@@ -5,8 +5,9 @@ paraview.simple._DisableFirstRenderCameraReset()
 import os, copy, sys
 
 
-pluginPath = '/projects/PHASTA_aesp/ParaView/ParaViewSyncIOReaderPlugin/build552/libPhastaSyncIOReader.so'
 #pluginPath = '/projects/PHASTA_aesp/ParaView/ParaViewSyncIOReaderPlugin/build541/libPhastaSyncIOReader.so'
+#pluginPath = '/grand/AdaptVertTR/ParaView/ParaViewSyncIOReaderPlugin/build5p91/lib64/PhastaSyncIOReader/PhastaSyncIOReader.so'
+pluginPath = '/soft/visualization/paraview/v5.9.1//lib/paraview-5.9/plugins/PhastaSyncIOReader/PhastaSyncIOReader.so'
 phtsPath = './template.phts'  #using the word template because, like the interpolation code, we are going to loop over time steps and soft link files into a directory that this phts points at for our time step looping.  Note we do this because have thus far been unsuccesful getting pvbatch to cooperate with a multi time step phts file
 
 Lz=0.1424
@@ -35,7 +36,7 @@ for key, value in locations.items():
 
 
 
-print 'Loading Plugin...',
+print('Loading Plugin...')
 LoadPlugin(pluginPath, remote=True, ns=globals())
 print(' Done!')
 
@@ -58,25 +59,27 @@ for j, stimestep in enumerate(timesteps):
 #    if j == 0:
     if j >= 0:
         # create a new 'Phasta SyncIO Reader'
-        print 'Loading phts...',
+        print ('Loading phts...')
         templatephts = PhastaSyncIOReader(FileName=phtsPath)
-        templatephts.UpdatePipeline()
+        print(' about to update pipeline ')
+        UpdatePipeline(time=0.0,proxy=templatephts)
         print(' Done!')
 
         # create a new 'Plot Over Line'
-        print 'Create plotOverLine...',
+        print ('Create plotOverLine...')
         plotOverLine1 = PlotOverLine(Input=templatephts,
             Source='High Resolution Line Source')
-        print ' Done!'
+        print (' Done!')
 #    else:
-#        print 'Reloading phts...',
+#        print ('Reloading phts...')
 #        ReloadFiles(templatephts)
+#        UpdatePipeline(time=0.0,proxy=templatephts)
 #        templatephts.UpdatePipeline()
 #        print(' Done!')
 
-    print '    Looping over locations: ',
+    print ('    Looping over locations: ')
     for key, point in locations.items():
-        print str(key),
+        print (str(key))
         # Properties modified on plotOverLine1.Source
         plotOverLine1.Source.Point1 = [point[0], point[1], 0.0]
         plotOverLine1.Source.Point2 = [point[0], point[1], Lz]
@@ -89,7 +92,7 @@ for j, stimestep in enumerate(timesteps):
 
         SaveData('./spectra_csvs/' + filename, proxy=plotOverLine1, Precision=16, UseScientificNotation=1)
 
-    print ' Done!'
+    print (' Done!')
 # destroy plotOverLine1
     Delete(plotOverLine1)
     del plotOverLine1
